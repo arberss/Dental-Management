@@ -22,3 +22,10 @@ export class VerifyUserDto {
   @IsNotEmpty()
   password: string;
 }
+
+export class DoctorIdDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  doctorId: string;
+}

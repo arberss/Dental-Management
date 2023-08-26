@@ -7,11 +7,14 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, PaginateModel } from 'mongoose';
 import { User, UserDocument } from 'src/schema/user.schema';
 import { RegisterDto } from '../auth/dto/auth.dto';
 import { MailService } from '../mail/mail.service';
 import * as bcrypt from 'bcrypt';
+import { formatResponse, paginationParams } from 'src/dtos/pagination/config';
+import { PaginationParamsDto } from 'src/dtos/pagination/pagination.dto';
+import { DoctorIdDto } from './dto/user.dto';
 
 @Injectable()
 export class UserService {
@@ -20,6 +23,8 @@ export class UserService {
 
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(User.name)
+    private userModelPag: PaginateModel<UserDocument>,
     private jwtService: JwtService,
     private config: ConfigService,
   ) {}
@@ -52,6 +57,42 @@ export class UserService {
       }
 
       return users;
+    } catch (error) {
+      throw new ForbiddenException(error.message);
+    }
+  }
+
+  async getDoctors(pagination: PaginationParamsDto) {
+    try {
+      const doctors = await this.userModelPag.paginate(
+        {
+          roles: 'doctor',
+        },
+        paginationParams(pagination),
+      );
+
+      return formatResponse(doctors);
+    } catch (error) {
+      throw new ForbiddenException(error.message);
+    }
+  }
+
+  async getDoctor(dto: DoctorIdDto) {
+    try {
+      const doctor = await this.userModel
+        .findOne({
+          _id: dto.doctorId,
+          roles: 'doctor',
+        })
+        .select('-password -registerToken')
+        .populate({
+          path: 'patients',
+        });
+
+      if (!doctor) {
+        throw new NotFoundException('There is no doctor with that id');
+      }
+      return doctor;
     } catch (error) {
       throw new ForbiddenException(error.message);
     }
@@ -93,6 +134,7 @@ export class UserService {
         email: dto.email,
         registerToken: token.access_token,
         roles: dto?.roles ?? ['doctor'],
+        patients: [],
       });
 
       return {
@@ -109,6 +151,10 @@ export class UserService {
 
   async verifyRegisteredUser(token: string, password: string) {
     try {
+      if (!password) {
+        throw new NotFoundException('Password is required');
+      }
+
       const user = await this.userModel.findOne({ registerToken: token });
       if (!user) {
         throw new NotFoundException("This user don't exist or is registered!");

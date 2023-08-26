@@ -11,7 +11,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, PaginateModel } from 'mongoose';
+import { Model, PaginateModel, Types } from 'mongoose';
 import { Patient, PatientDocument } from 'src/schema/patient.schema';
 import { TreatmentService } from '../treatment/treatment.service';
 import {
@@ -21,6 +21,7 @@ import {
 import { Treatment, TreatmentDocument } from 'src/schema/treatment.schema';
 import { PaginationParamsDto } from 'src/dtos/pagination/pagination.dto';
 import { formatResponse, paginationParams } from 'src/dtos/pagination/config';
+import { User, UserDocument } from 'src/schema/user.schema';
 
 @Injectable()
 export class PatientService {
@@ -31,7 +32,7 @@ export class PatientService {
     @InjectModel(Patient.name) private patientModel: Model<PatientDocument>,
     @InjectModel(Patient.name)
     private patientModelPag: PaginateModel<PatientDocument>,
-
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Treatment.name)
     private treatmentModel: Model<TreatmentDocument>,
   ) {}
@@ -51,6 +52,8 @@ export class PatientService {
       );
 
       if (treatment) {
+        let patientTreatment: (Patient & { _id: Types.ObjectId }) | null = null;
+
         const dataToSet = {
           firstName: dto.firstName,
           parentName: dto.parentName,
@@ -61,33 +64,34 @@ export class PatientService {
         };
 
         if (checkPatient) {
-          const updatedPatientTreatment =
-            await this.patientModel.findOneAndUpdate(
-              {
-                firstName: dto.firstName,
-                lastName: dto.lastName,
-                parentName: dto.parentName,
-                dateOfBirth: dto.dateOfBirth,
-                ...(dto.contactNumber && { contactNumber: dto.contactNumber }),
+          patientTreatment = await this.patientModel.findOneAndUpdate(
+            {
+              firstName: dto.firstName,
+              lastName: dto.lastName,
+              parentName: dto.parentName,
+              dateOfBirth: dto.dateOfBirth,
+              ...(dto.contactNumber && { contactNumber: dto.contactNumber }),
+            },
+            {
+              $push: {
+                treatments: treatment._id,
               },
-              {
-                $push: {
-                  treatments: treatment._id,
-                },
-              },
-              {
-                new: true,
-              },
-            );
-          return updatedPatientTreatment;
+            },
+            {
+              new: true,
+            },
+          );
         } else {
-          const createdPatientWithTreatment = await this.patientModel.create({
+          patientTreatment = await this.patientModel.create({
             ...dataToSet,
             treatments: [treatment._id],
           });
-
-          return createdPatientWithTreatment;
         }
+
+        await this.userModel.findByIdAndUpdate(dto.treatment.doctor, {
+          $push: { patients: patientTreatment?._id },
+        });
+        return patientTreatment;
       } else {
         throw new ForbiddenException('Something went wrong');
       }
@@ -151,7 +155,22 @@ export class PatientService {
         const patientTreatmentsIds = deletedPatient.treatments.map((p) => {
           return this.treatmentModel.findByIdAndDelete(p._id);
         });
-        Promise.all(patientTreatmentsIds);
+        await Promise.all(patientTreatmentsIds);
+        const usersWithPatient = await this.userModel.find({
+          patients: dto.patientId,
+        });
+
+        // remove patient id from user patients list
+        const usersWithPatientId = usersWithPatient.map(async (u) => {
+          const user = await this.userModel.findById(u._id);
+          const patientIndex = user.patients.findIndex(
+            (p) => p._id.toString() === dto.patientId,
+          );
+          user.patients.splice(patientIndex, 1);
+          await user.save();
+        });
+        await Promise.all(usersWithPatientId);
+
         return dto.patientId;
       }
 

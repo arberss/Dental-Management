@@ -6,6 +6,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Patient, PatientSchema } from 'src/schema/patient.schema';
 import { TreatmentModule } from '../treatment/treatment.module';
 import { Treatment, TreatmentSchema } from 'src/schema/treatment.schema';
+import { User, UserSchema } from 'src/schema/user.schema';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { Treatment, TreatmentSchema } from 'src/schema/treatment.schema';
     MongooseModule.forFeature([
       { name: Treatment.name, schema: TreatmentSchema },
     ]),
+    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
     JwtModule.register({}),
     TreatmentModule,
   ],
