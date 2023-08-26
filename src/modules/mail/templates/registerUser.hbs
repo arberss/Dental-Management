@@ -1,0 +1,128 @@
+<html lang='en'>
+
+<head>
+    <meta charset='UTF-8' />
+    <meta http-equiv='X-UA-Compatible' content='IE=edge' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+    <title>Sample Template</title>
+
+    <style>
+        body {
+            font-family: sans-serif;
+        }
+
+        .container {
+            width: 100%;
+            max-width:
+                800px;
+            margin: 0 auto;
+            margin: 0 auto;
+        }
+
+        .title {
+            text-align: center;
+        }
+
+        .content-user,
+        .content-desc {
+            text-align: center;
+        }
+
+        .content-desc {
+            margin: 5px 0;
+        }
+
+        .configure-button {
+            display: table;
+            margin: 20px auto 10px auto;
+            padding: 10px 20px;
+            background-color: green;
+            color: white;
+            border-radius: 10px;
+            text-decoration: none;
+        }
+
+        .btn-wrapper {
+            width: 100%;
+            text-align: center;
+        }
+
+        .link {
+            margin: 10px 0;
+            text-decoration: underline;
+        }
+
+        .text-center: {
+            text-align: enter;
+        }
+
+        table tr td {
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class='container'>
+        <h3 class='title'>Dental Management</h3>
+
+        <table class='content' align='center'>
+            <tbody>
+                <tr>
+                    <td align='center'>
+                        <h3 class='content-user'>
+                            Hi
+                            {{fullName}},
+                        </h3>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td align='center'>
+                        <h4 class='content-desc'>
+                            You have been registered as
+                            {{role}}
+                            in Dental Management.
+                        </h4>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td align='center'>
+                        <h4 class='content-desc'>
+                            Your account is ready to configure.
+                        </h4>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td align='center'>
+                        <h4 class='content-desc'>
+                            Please set your password to configure your account.
+                        </h4>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td align='center'>
+                        <a href='{{link}}' target='_blank' class='configure-button'>
+                            Configure
+                        </a>
+                    </td>
+                </tr>
+                <tr>
+                    <td align='center'>
+                        or copy the link
+                    </td>
+                </tr>
+                <tr>
+                    <td align='center'>
+                        <div class='link'>{{link}}</div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+
+</html>
