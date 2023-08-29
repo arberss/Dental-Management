@@ -11,7 +11,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, PaginateModel, Types } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Patient, PatientDocument } from 'src/schema/patient.schema';
 import { TreatmentService } from '../treatment/treatment.service';
 import {
@@ -20,8 +20,9 @@ import {
 } from '../treatment/dto/treatment.dto';
 import { Treatment, TreatmentDocument } from 'src/schema/treatment.schema';
 import { PaginationParamsDto } from 'src/dtos/pagination/pagination.dto';
-import { formatResponse, paginationParams } from 'src/dtos/pagination/config';
+import { formatResponse } from 'src/dtos/pagination/config';
 import { User, UserDocument } from 'src/schema/user.schema';
+import { calculatePages, skipPages } from 'src/utils';
 
 @Injectable()
 export class PatientService {
@@ -30,8 +31,6 @@ export class PatientService {
 
   constructor(
     @InjectModel(Patient.name) private patientModel: Model<PatientDocument>,
-    @InjectModel(Patient.name)
-    private patientModelPag: PaginateModel<PatientDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Treatment.name)
     private treatmentModel: Model<TreatmentDocument>,
@@ -180,22 +179,72 @@ export class PatientService {
     }
   }
 
-  async getPatients(dto: GetPatientQueryDto, pagination: PaginationParamsDto) {
+  async getPatients(
+    filters: GetPatientQueryDto,
+    pagination: PaginationParamsDto,
+  ) {
     try {
-      const patients = await this.patientModelPag.paginate(
-        {
-          firstName: { $regex: dto?.firstName ?? '', $options: 'i' },
-          parentName: { $regex: dto?.parentName ?? '', $options: 'i' },
-          lastName: { $regex: dto?.lastName ?? '', $options: 'i' },
+      const patients = await this.patientModel
+        .find({
+          firstName: { $regex: filters?.firstName ?? '', $options: 'i' },
+          parentName: { $regex: filters?.parentName ?? '', $options: 'i' },
+          lastName: { $regex: filters?.lastName ?? '', $options: 'i' },
           contactNumber: {
-            $regex: dto?.contactNumber ?? '',
+            $regex: filters?.contactNumber ?? '',
             $options: 'i',
           },
-        },
-        paginationParams(pagination),
-      );
+        })
+        .skip(skipPages(pagination))
+        .limit(Number(pagination.size));
 
-      return formatResponse(patients);
+      const countDocuments = await this.patientModel.countDocuments();
+
+      const calculatedPages = calculatePages({
+        page: pagination.page,
+        size: pagination.size,
+        totalPages: countDocuments,
+      });
+
+      return formatResponse(patients, calculatedPages);
+    } catch (error) {
+      throw new ForbiddenException(error.message);
+    }
+  }
+
+  async getPatient(patientId: string) {
+    try {
+      const patient = await this.patientModel.findById(patientId).populate({
+        path: 'treatments',
+      });
+      return patient;
+    } catch (error) {
+      throw new ForbiddenException(error.message);
+    }
+  }
+
+  async getPatientsStats() {
+    try {
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      const end = new Date();
+      end.setHours(23, 59, 59, 999);
+
+      const totalPatients = await this.patientModel.countDocuments();
+      const totalTodayPatients = await this.patientModel
+        .find({
+          $or: [
+            {
+              createdAt: { $gte: start, $lt: end },
+              updatedAt: { $gte: start, $lt: end },
+            },
+          ],
+        })
+        .count();
+
+      return {
+        totalPatients,
+        totalTodayPatients,
+      };
     } catch (error) {
       throw new ForbiddenException(error.message);
     }

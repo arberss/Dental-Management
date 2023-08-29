@@ -131,3 +131,10 @@ export class GetPatientQueryDto {
   @IsOptional()
   contactNumber: string;
 }
+
+export class GetPatientByIdDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  patientId: string;
+}

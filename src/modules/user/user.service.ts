@@ -7,14 +7,15 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, PaginateModel } from 'mongoose';
+import { Model } from 'mongoose';
 import { User, UserDocument } from 'src/schema/user.schema';
 import { RegisterDto } from '../auth/dto/auth.dto';
 import { MailService } from '../mail/mail.service';
 import * as bcrypt from 'bcrypt';
-import { formatResponse, paginationParams } from 'src/dtos/pagination/config';
 import { PaginationParamsDto } from 'src/dtos/pagination/pagination.dto';
-import { DoctorIdDto } from './dto/user.dto';
+import { DoctorIdDto, GetDoctorsQueryDto } from './dto/user.dto';
+import { calculatePages, skipPages } from 'src/utils';
+import { formatResponse } from 'src/dtos/pagination/config';
 
 @Injectable()
 export class UserService {
@@ -24,7 +25,6 @@ export class UserService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(User.name)
-    private userModelPag: PaginateModel<UserDocument>,
     private jwtService: JwtService,
     private config: ConfigService,
   ) {}
@@ -62,16 +62,30 @@ export class UserService {
     }
   }
 
-  async getDoctors(pagination: PaginationParamsDto) {
+  async getDoctors(
+    filters: GetDoctorsQueryDto,
+    pagination: PaginationParamsDto,
+  ) {
     try {
-      const doctors = await this.userModelPag.paginate(
-        {
+      const doctors = await this.userModel
+        .find({
+          firstName: { $regex: filters?.firstName ?? '', $options: 'i' },
+          lastName: { $regex: filters?.lastName ?? '', $options: 'i' },
           roles: 'doctor',
-        },
-        paginationParams(pagination),
-      );
+        })
+        .select('-registerToken -password')
+        .skip(skipPages(pagination))
+        .limit(Number(pagination.size));
 
-      return formatResponse(doctors);
+      const countDocuments = await this.userModel.countDocuments();
+
+      const calculatedPages = calculatePages({
+        page: pagination.page,
+        size: pagination.size,
+        totalPages: countDocuments,
+      });
+
+      return formatResponse(doctors, calculatedPages);
     } catch (error) {
       throw new ForbiddenException(error.message);
     }

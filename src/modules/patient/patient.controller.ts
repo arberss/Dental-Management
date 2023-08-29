@@ -20,6 +20,7 @@ import {
 import {
   CreatePatientWithTreatmentDto,
   DeletePatientDto,
+  GetPatientByIdDto,
   GetPatientQueryDto,
   UpdatePatientDto,
 } from './dto/patient.dto';
@@ -71,9 +72,23 @@ export class PatientController {
   @UseGuards(RolesGuard)
   @Get('/patients')
   getPatients(
-    @Query() dto: GetPatientQueryDto,
+    @Query() filters: GetPatientQueryDto,
     @Query() pagination: PaginationParamsDto,
   ) {
-    return this.patientService.getPatients(dto, pagination);
+    return this.patientService.getPatients(filters, pagination);
+  }
+
+  @AnyOfRole(['admin', 'doctor'])
+  @UseGuards(RolesGuard)
+  @Get('/stats')
+  getPatientsStats() {
+    return this.patientService.getPatientsStats();
+  }
+
+  @AnyOfRole(['admin', 'doctor'])
+  @UseGuards(RolesGuard)
+  @Get('/:patientId')
+  getPatient(dto: GetPatientByIdDto) {
+    return this.patientService.getPatient(dto.patientId);
   }
 }
