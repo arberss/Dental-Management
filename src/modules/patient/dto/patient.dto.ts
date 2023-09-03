@@ -4,9 +4,12 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { CreateTreatmentDto } from 'src/modules/treatment/dto/treatment.dto';
+import { Type } from 'class-transformer';
 
 export class AddressDto {
   @ApiProperty()
@@ -28,24 +31,35 @@ export class AddressDto {
   postalCode: string;
 }
 
+const validateFieldOptions = [null, undefined, ''];
+
 export class CreatePatientWithTreatmentDto {
   @ApiProperty()
-  @IsString()
+  @ValidateIf((o) => validateFieldOptions.includes(o.firstName))
+  @ValidateIf((o) => validateFieldOptions.includes(o.parentName))
+  @ValidateIf((o) => validateFieldOptions.includes(o.lastName))
+  @ValidateIf((o) => validateFieldOptions.includes(o.dateOfBirth))
+  @ValidateIf((o) => validateFieldOptions.includes(o.address))
+  @IsNotEmpty()
+  _id: string;
+
+  @ApiProperty()
+  @ValidateIf((o) => validateFieldOptions.includes(o._id))
   @IsNotEmpty()
   firstName: string;
 
   @ApiProperty()
-  @IsString()
+  @ValidateIf((o) => validateFieldOptions.includes(o._id))
   @IsNotEmpty()
   parentName: string;
 
   @ApiProperty()
-  @IsString()
+  @ValidateIf((o) => validateFieldOptions.includes(o._id))
   @IsNotEmpty()
   lastName: string;
 
   @ApiProperty()
-  @IsDateString()
+  @ValidateIf((o) => validateFieldOptions.includes(o._id))
   @IsNotEmpty()
   dateOfBirth: string;
 
@@ -54,12 +68,14 @@ export class CreatePatientWithTreatmentDto {
   contactNumber: string;
 
   @ApiProperty()
-  @IsObject()
-  @IsNotEmpty()
+  @ValidateIf((o) => validateFieldOptions.includes(o._id))
+  @ValidateNested()
+  @Type(() => AddressDto)
   address: AddressDto;
 
   @ApiProperty()
-  @IsNotEmpty()
+  @ValidateNested()
+  @Type(() => CreateTreatmentDto)
   treatment: CreateTreatmentDto;
 }
 
@@ -111,25 +127,7 @@ export class GetPatientQueryDto {
     required: false,
   })
   @IsOptional()
-  firstName: string;
-
-  @ApiProperty({
-    required: false,
-  })
-  @IsOptional()
-  parentName: string;
-
-  @ApiProperty({
-    required: false,
-  })
-  @IsOptional()
-  lastName: string;
-
-  @ApiProperty({
-    required: false,
-  })
-  @IsOptional()
-  contactNumber: string;
+  search: string;
 }
 
 export class GetPatientByIdDto {

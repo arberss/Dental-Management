@@ -20,3 +20,4 @@ export class Treatment {
 }
 
 export const TreatmentSchema = SchemaFactory.createForClass(Treatment);
+TreatmentSchema.index({ createdAt: 1 });

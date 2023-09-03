@@ -12,11 +12,13 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { PaginationParamsDto } from 'src/dtos/pagination/pagination.dto';
 import { AnyOfRole } from 'src/guards/role/role.decorator';
 import { RolesGuard } from 'src/guards/role/role.guard';
+import { GetUser } from '../auth/decorator/getUser.decorator';
 import { JwtAuthGuard } from '../auth/guard/jwt.guard';
 import {
   DeleteTreatmentDto,
   UpdateTreatmentDto,
 } from '../treatment/dto/treatment.dto';
+import { UserMeDto } from '../user/dto/user.dto';
 import {
   CreatePatientWithTreatmentDto,
   DeletePatientDto,
@@ -81,14 +83,14 @@ export class PatientController {
   @AnyOfRole(['admin', 'doctor'])
   @UseGuards(RolesGuard)
   @Get('/stats')
-  getPatientsStats() {
-    return this.patientService.getPatientsStats();
+  getPatientsStats(@GetUser() user: UserMeDto) {
+    return this.patientService.getPatientsStats(user);
   }
 
   @AnyOfRole(['admin', 'doctor'])
   @UseGuards(RolesGuard)
-  @Get('/:patientId')
-  getPatient(dto: GetPatientByIdDto) {
+  @Get(':patientId')
+  getPatient(@Param() dto: GetPatientByIdDto) {
     return this.patientService.getPatient(dto.patientId);
   }
 }

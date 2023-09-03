@@ -11,7 +11,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model, PipelineStage, Types } from 'mongoose';
 import { Patient, PatientDocument } from 'src/schema/patient.schema';
 import { TreatmentService } from '../treatment/treatment.service';
 import {
@@ -23,6 +23,7 @@ import { PaginationParamsDto } from 'src/dtos/pagination/pagination.dto';
 import { formatResponse } from 'src/dtos/pagination/config';
 import { User, UserDocument } from 'src/schema/user.schema';
 import { calculatePages, skipPages } from 'src/utils';
+import { UserMeDto } from '../user/dto/user.dto';
 
 @Injectable()
 export class PatientService {
@@ -38,13 +39,15 @@ export class PatientService {
 
   async addPatientTreatment(dto: CreatePatientWithTreatmentDto) {
     try {
-      const checkPatient = await this.patientModel.findOne({
+      const checkPatientWithDto = await this.patientModel.findOne({
         firstName: dto.firstName,
         lastName: dto.lastName,
         parentName: dto.parentName,
         dateOfBirth: dto.dateOfBirth,
         ...(dto.contactNumber && { contactNumber: dto.contactNumber }),
       });
+
+      const checkPatientWithId = await this.patientModel.findById(dto._id);
 
       const treatment = await this.treatmentService.createTreatment(
         dto.treatment,
@@ -62,15 +65,11 @@ export class PatientService {
           address: dto.address,
         };
 
-        if (checkPatient) {
-          patientTreatment = await this.patientModel.findOneAndUpdate(
-            {
-              firstName: dto.firstName,
-              lastName: dto.lastName,
-              parentName: dto.parentName,
-              dateOfBirth: dto.dateOfBirth,
-              ...(dto.contactNumber && { contactNumber: dto.contactNumber }),
-            },
+        if (checkPatientWithDto) {
+          throw new ForbiddenException('There is a patient with this data.');
+        } else if (checkPatientWithId) {
+          patientTreatment = await this.patientModel.findByIdAndUpdate(
+            dto._id,
             {
               $push: {
                 treatments: treatment._id,
@@ -186,14 +185,21 @@ export class PatientService {
     try {
       const patients = await this.patientModel
         .find({
-          firstName: { $regex: filters?.firstName ?? '', $options: 'i' },
-          parentName: { $regex: filters?.parentName ?? '', $options: 'i' },
-          lastName: { $regex: filters?.lastName ?? '', $options: 'i' },
-          contactNumber: {
-            $regex: filters?.contactNumber ?? '',
-            $options: 'i',
-          },
+          $or: [
+            {
+              firstName: { $regex: filters?.search ?? '', $options: 'i' },
+            },
+            { parentName: { $regex: filters?.search ?? '', $options: 'i' } },
+            { lastName: { $regex: filters?.search ?? '', $options: 'i' } },
+            {
+              contactNumber: {
+                $regex: filters?.search ?? '',
+                $options: 'i',
+              },
+            },
+          ],
         })
+        .sort('-_id')
         .skip(skipPages(pagination))
         .limit(Number(pagination.size));
 
@@ -213,37 +219,62 @@ export class PatientService {
 
   async getPatient(patientId: string) {
     try {
-      const patient = await this.patientModel.findById(patientId).populate({
-        path: 'treatments',
-      });
+      const patient = await this.patientModel.findById(patientId);
       return patient;
     } catch (error) {
       throw new ForbiddenException(error.message);
     }
   }
 
-  async getPatientsStats() {
+  async getPatientsStats(user: UserMeDto) {
     try {
+      const isDoctor = user?.roles?.includes('doctor');
+
       const start = new Date();
       start.setHours(0, 0, 0, 0);
       const end = new Date();
       end.setHours(23, 59, 59, 999);
 
-      const totalPatients = await this.patientModel.countDocuments();
-      const totalTodayPatients = await this.patientModel
+      const pipeline: PipelineStage[] = [
+        {
+          $lookup: {
+            from: 'treatments',
+            localField: 'treatments',
+            foreignField: '_id',
+            as: 'treatmentsData',
+          },
+        },
+      ];
+
+      if (isDoctor) {
+        pipeline.push({
+          $match: {
+            'treatmentsData.doctor': user?._id,
+          },
+        });
+      }
+
+      pipeline.push({
+        $count: 'totalPatients',
+      });
+
+      const totalPatientsQuery = await this.patientModel.aggregate(pipeline);
+
+      let totalPatients = 0;
+      if (totalPatientsQuery.length > 0) {
+        totalPatients = totalPatientsQuery[0].totalPatients;
+      }
+
+      const totalTodayTreatments = await this.treatmentModel
         .find({
-          $or: [
-            {
-              createdAt: { $gte: start, $lt: end },
-              updatedAt: { $gte: start, $lt: end },
-            },
-          ],
+          ...(isDoctor && { doctor: user?._id }),
+          createdAt: { $gte: start, $lt: end },
         })
         .count();
 
       return {
         totalPatients,
-        totalTodayPatients,
+        totalTodayTreatments,
       };
     } catch (error) {
       throw new ForbiddenException(error.message);

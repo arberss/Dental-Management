@@ -22,7 +22,7 @@ export class User {
   registerToken: string;
 
   @Prop({ default: ['doctor'] })
-  roles: ['doctor'];
+  roles: ['doctor', 'admin'];
 
   @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Patient' }] })
   patients: mongoose.Types.ObjectId[];

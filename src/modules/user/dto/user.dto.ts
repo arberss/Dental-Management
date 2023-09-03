@@ -9,6 +9,7 @@ export interface UserMeDto {
   email: string;
   roles: string[];
   patients: Patient[];
+  createdAt: Date;
 }
 
 export class VerifyUserDto {
