@@ -11,7 +11,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, PaginateModel } from 'mongoose';
+import { Model, PipelineStage, Types } from 'mongoose';
 import { Patient, PatientDocument } from 'src/schema/patient.schema';
 import { TreatmentService } from '../treatment/treatment.service';
 import {
@@ -20,7 +20,10 @@ import {
 } from '../treatment/dto/treatment.dto';
 import { Treatment, TreatmentDocument } from 'src/schema/treatment.schema';
 import { PaginationParamsDto } from 'src/dtos/pagination/pagination.dto';
-import { formatResponse, paginationParams } from 'src/dtos/pagination/config';
+import { formatResponse } from 'src/dtos/pagination/config';
+import { User, UserDocument } from 'src/schema/user.schema';
+import { calculatePages, skipPages } from 'src/utils';
+import { UserMeDto } from '../user/dto/user.dto';
 
 @Injectable()
 export class PatientService {
@@ -29,16 +32,14 @@ export class PatientService {
 
   constructor(
     @InjectModel(Patient.name) private patientModel: Model<PatientDocument>,
-    @InjectModel(Patient.name)
-    private patientModelPag: PaginateModel<PatientDocument>,
-
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Treatment.name)
     private treatmentModel: Model<TreatmentDocument>,
   ) {}
 
   async addPatientTreatment(dto: CreatePatientWithTreatmentDto) {
     try {
-      const checkPatient = await this.patientModel.findOne({
+      const checkPatientWithDto = await this.patientModel.findOne({
         firstName: dto.firstName,
         lastName: dto.lastName,
         parentName: dto.parentName,
@@ -46,11 +47,15 @@ export class PatientService {
         ...(dto.contactNumber && { contactNumber: dto.contactNumber }),
       });
 
+      const checkPatientWithId = await this.patientModel.findById(dto._id);
+
       const treatment = await this.treatmentService.createTreatment(
         dto.treatment,
       );
 
       if (treatment) {
+        let patientTreatment: (Patient & { _id: Types.ObjectId }) | null = null;
+
         const dataToSet = {
           firstName: dto.firstName,
           parentName: dto.parentName,
@@ -60,34 +65,31 @@ export class PatientService {
           address: dto.address,
         };
 
-        if (checkPatient) {
-          const updatedPatientTreatment =
-            await this.patientModel.findOneAndUpdate(
-              {
-                firstName: dto.firstName,
-                lastName: dto.lastName,
-                parentName: dto.parentName,
-                dateOfBirth: dto.dateOfBirth,
-                ...(dto.contactNumber && { contactNumber: dto.contactNumber }),
+        if (checkPatientWithDto) {
+          throw new ForbiddenException('There is a patient with this data.');
+        } else if (checkPatientWithId) {
+          patientTreatment = await this.patientModel.findByIdAndUpdate(
+            dto._id,
+            {
+              $push: {
+                treatments: treatment._id,
               },
-              {
-                $push: {
-                  treatments: treatment._id,
-                },
-              },
-              {
-                new: true,
-              },
-            );
-          return updatedPatientTreatment;
+            },
+            {
+              new: true,
+            },
+          );
         } else {
-          const createdPatientWithTreatment = await this.patientModel.create({
+          patientTreatment = await this.patientModel.create({
             ...dataToSet,
             treatments: [treatment._id],
           });
-
-          return createdPatientWithTreatment;
         }
+
+        await this.userModel.findByIdAndUpdate(dto.treatment.doctor, {
+          $push: { patients: patientTreatment?._id },
+        });
+        return patientTreatment;
       } else {
         throw new ForbiddenException('Something went wrong');
       }
@@ -151,7 +153,22 @@ export class PatientService {
         const patientTreatmentsIds = deletedPatient.treatments.map((p) => {
           return this.treatmentModel.findByIdAndDelete(p._id);
         });
-        Promise.all(patientTreatmentsIds);
+        await Promise.all(patientTreatmentsIds);
+        const usersWithPatient = await this.userModel.find({
+          patients: dto.patientId,
+        });
+
+        // remove patient id from user patients list
+        const usersWithPatientId = usersWithPatient.map(async (u) => {
+          const user = await this.userModel.findById(u._id);
+          const patientIndex = user.patients.findIndex(
+            (p) => p._id.toString() === dto.patientId,
+          );
+          user.patients.splice(patientIndex, 1);
+          await user.save();
+        });
+        await Promise.all(usersWithPatientId);
+
         return dto.patientId;
       }
 
@@ -161,22 +178,104 @@ export class PatientService {
     }
   }
 
-  async getPatients(dto: GetPatientQueryDto, pagination: PaginationParamsDto) {
+  async getPatients(
+    filters: GetPatientQueryDto,
+    pagination: PaginationParamsDto,
+  ) {
     try {
-      const patients = await this.patientModelPag.paginate(
+      const patients = await this.patientModel
+        .find({
+          $or: [
+            {
+              firstName: { $regex: filters?.search ?? '', $options: 'i' },
+            },
+            { parentName: { $regex: filters?.search ?? '', $options: 'i' } },
+            { lastName: { $regex: filters?.search ?? '', $options: 'i' } },
+            {
+              contactNumber: {
+                $regex: filters?.search ?? '',
+                $options: 'i',
+              },
+            },
+          ],
+        })
+        .sort('-_id')
+        .skip(skipPages(pagination))
+        .limit(Number(pagination.size));
+
+      const countDocuments = await this.patientModel.countDocuments();
+
+      const calculatedPages = calculatePages({
+        page: pagination.page,
+        size: pagination.size,
+        totalPages: countDocuments,
+      });
+
+      return formatResponse(patients, calculatedPages);
+    } catch (error) {
+      throw new ForbiddenException(error.message);
+    }
+  }
+
+  async getPatient(patientId: string) {
+    try {
+      const patient = await this.patientModel.findById(patientId);
+      return patient;
+    } catch (error) {
+      throw new ForbiddenException(error.message);
+    }
+  }
+
+  async getPatientsStats(user: UserMeDto) {
+    try {
+      const isDoctor = user?.roles?.includes('doctor');
+
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      const end = new Date();
+      end.setHours(23, 59, 59, 999);
+
+      const pipeline: PipelineStage[] = [
         {
-          firstName: { $regex: dto?.firstName ?? '', $options: 'i' },
-          parentName: { $regex: dto?.parentName ?? '', $options: 'i' },
-          lastName: { $regex: dto?.lastName ?? '', $options: 'i' },
-          contactNumber: {
-            $regex: dto?.contactNumber ?? '',
-            $options: 'i',
+          $lookup: {
+            from: 'treatments',
+            localField: 'treatments',
+            foreignField: '_id',
+            as: 'treatmentsData',
           },
         },
-        paginationParams(pagination),
-      );
+      ];
 
-      return formatResponse(patients);
+      if (isDoctor) {
+        pipeline.push({
+          $match: {
+            'treatmentsData.doctor': user?._id,
+          },
+        });
+      }
+
+      pipeline.push({
+        $count: 'totalPatients',
+      });
+
+      const totalPatientsQuery = await this.patientModel.aggregate(pipeline);
+
+      let totalPatients = 0;
+      if (totalPatientsQuery.length > 0) {
+        totalPatients = totalPatientsQuery[0].totalPatients;
+      }
+
+      const totalTodayTreatments = await this.treatmentModel
+        .find({
+          ...(isDoctor && { doctor: user?._id }),
+          createdAt: { $gte: start, $lt: end },
+        })
+        .count();
+
+      return {
+        totalPatients,
+        totalTodayTreatments,
+      };
     } catch (error) {
       throw new ForbiddenException(error.message);
     }

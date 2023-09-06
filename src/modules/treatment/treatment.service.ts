@@ -5,7 +5,11 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { PaginationParamsDto } from 'src/dtos/pagination/pagination.dto';
+import { Patient, PatientDocument } from 'src/schema/patient.schema';
 import { Treatment, TreatmentDocument } from 'src/schema/treatment.schema';
+import { skipPages } from 'src/utils';
+import { GetPatientByIdDto } from '../patient/dto/patient.dto';
 import {
   CreateTreatmentDto,
   DeleteTreatmentDto,
@@ -17,6 +21,7 @@ export class TreatmentService {
   constructor(
     @InjectModel(Treatment.name)
     private treatmentModel: Model<TreatmentDocument>,
+    @InjectModel(Patient.name) private patientModel: Model<PatientDocument>,
   ) {}
 
   async createTreatment(dto: CreateTreatmentDto) {
@@ -51,6 +56,33 @@ export class TreatmentService {
 
       const updatedTreatment = await treatment.save();
       return updatedTreatment;
+    } catch (error) {
+      throw new ForbiddenException(error.message);
+    }
+  }
+
+  async getPatientTreatments(
+    dto: GetPatientByIdDto,
+    pagination: PaginationParamsDto,
+  ) {
+    try {
+      const patient = await this.patientModel.findById(dto.patientId);
+      if (!patient) {
+        throw new NotFoundException('Patient not found');
+      }
+
+      const treatmentIds = patient.treatments; // Assuming treatments array holds treatment IDs
+      const treatments = await this.treatmentModel
+        .find({ _id: { $in: treatmentIds } })
+        .sort('-_id')
+        .populate({
+          path: 'doctor',
+          select: '_id firstName lastName',
+        })
+        .skip(skipPages(pagination))
+        .limit(Number(pagination.size));
+
+      return treatments;
     } catch (error) {
       throw new ForbiddenException(error.message);
     }

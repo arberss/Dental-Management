@@ -35,7 +35,6 @@
     "handlebars": "^4.7.8",
     "i": "^0.3.7",
     "mongoose": "^7.4.4",
-    "mongoose-paginate-v2": "^1.7.31",
     "nodemailer": "^6.9.4",
     "npm": "^9.8.1",
     "passport-jwt": "^4.0.1",

@@ -12,6 +12,10 @@ import { User, UserDocument } from 'src/schema/user.schema';
 import { RegisterDto } from '../auth/dto/auth.dto';
 import { MailService } from '../mail/mail.service';
 import * as bcrypt from 'bcrypt';
+import { PaginationParamsDto } from 'src/dtos/pagination/pagination.dto';
+import { DoctorIdDto, GetDoctorsQueryDto } from './dto/user.dto';
+import { calculatePages, skipPages } from 'src/utils';
+import { formatResponse } from 'src/dtos/pagination/config';
 
 @Injectable()
 export class UserService {
@@ -20,6 +24,7 @@ export class UserService {
 
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(User.name)
     private jwtService: JwtService,
     private config: ConfigService,
   ) {}
@@ -52,6 +57,56 @@ export class UserService {
       }
 
       return users;
+    } catch (error) {
+      throw new ForbiddenException(error.message);
+    }
+  }
+
+  async getDoctors(
+    filters: GetDoctorsQueryDto,
+    pagination: PaginationParamsDto,
+  ) {
+    try {
+      const doctors = await this.userModel
+        .find({
+          firstName: { $regex: filters?.firstName ?? '', $options: 'i' },
+          lastName: { $regex: filters?.lastName ?? '', $options: 'i' },
+          roles: 'doctor',
+        })
+        .select('-registerToken -password')
+        .skip(skipPages(pagination))
+        .limit(Number(pagination.size));
+
+      const countDocuments = await this.userModel.countDocuments();
+
+      const calculatedPages = calculatePages({
+        page: pagination.page,
+        size: pagination.size,
+        totalPages: countDocuments,
+      });
+
+      return formatResponse(doctors, calculatedPages);
+    } catch (error) {
+      throw new ForbiddenException(error.message);
+    }
+  }
+
+  async getDoctor(dto: DoctorIdDto) {
+    try {
+      const doctor = await this.userModel
+        .findOne({
+          _id: dto.doctorId,
+          roles: 'doctor',
+        })
+        .select('-password -registerToken')
+        .populate({
+          path: 'patients',
+        });
+
+      if (!doctor) {
+        throw new NotFoundException('There is no doctor with that id');
+      }
+      return doctor;
     } catch (error) {
       throw new ForbiddenException(error.message);
     }
@@ -93,6 +148,7 @@ export class UserService {
         email: dto.email,
         registerToken: token.access_token,
         roles: dto?.roles ?? ['doctor'],
+        patients: [],
       });
 
       return {
@@ -109,6 +165,10 @@ export class UserService {
 
   async verifyRegisteredUser(token: string, password: string) {
     try {
+      if (!password) {
+        throw new NotFoundException('Password is required');
+      }
+
       const user = await this.userModel.findOne({ registerToken: token });
       if (!user) {
         throw new NotFoundException("This user don't exist or is registered!");

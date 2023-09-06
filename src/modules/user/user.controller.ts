@@ -1,12 +1,27 @@
-import { Body, Controller, Get, Post, Put, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { GetUser } from '../auth/decorator/getUser.decorator';
 import { JwtAuthGuard } from '../auth/guard/jwt.guard';
-import { UserMeDto, VerifyUserDto } from './dto/user.dto';
+import {
+  DoctorIdDto,
+  GetDoctorsQueryDto,
+  UserMeDto,
+  VerifyUserDto,
+} from './dto/user.dto';
 import { UserService } from './user.service';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { AllRoles } from 'src/guards/role/role.decorator';
+import { AllRoles, AnyOfRole } from 'src/guards/role/role.decorator';
 import { RolesGuard } from 'src/guards/role/role.guard';
 import { RegisterDto } from '../auth/dto/auth.dto';
+import { PaginationParamsDto } from 'src/dtos/pagination/pagination.dto';
 
 @ApiTags('User')
 @ApiBearerAuth()
@@ -28,7 +43,26 @@ export class UserController {
     return this.userService.getUsers();
   }
 
-  @AllRoles(['doctor'])
+  @AnyOfRole(['admin', 'doctor'])
+  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard)
+  @Get('doctors')
+  getDoctors(
+    @Query() filters: GetDoctorsQueryDto,
+    @Query() pagination: PaginationParamsDto,
+  ) {
+    return this.userService.getDoctors(filters, pagination);
+  }
+
+  @AllRoles(['admin'])
+  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard)
+  @Get('doctor/:doctorId')
+  getDoctor(@Param() dto: DoctorIdDto) {
+    return this.userService.getDoctor(dto);
+  }
+
+  @AllRoles(['admin'])
   @UseGuards(RolesGuard)
   @UseGuards(JwtAuthGuard)
   @Post('registerUser')
