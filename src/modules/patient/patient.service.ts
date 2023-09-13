@@ -98,15 +98,6 @@ export class PatientService {
     }
   }
 
-  async updateTreatment(dto: UpdateTreatmentDto) {
-    try {
-      const updatedTreatment = await this.treatmentService.updateTreatment(dto);
-      return updatedTreatment;
-    } catch (error) {
-      throw new ForbiddenException(error.message);
-    }
-  }
-
   async deleteTreatment(dto: DeleteTreatmentDto) {
     try {
       const deletedTreatment = await this.treatmentService.deleteTreatment(dto);

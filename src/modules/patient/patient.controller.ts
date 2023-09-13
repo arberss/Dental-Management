@@ -14,10 +14,6 @@ import { AnyOfRole } from 'src/guards/role/role.decorator';
 import { RolesGuard } from 'src/guards/role/role.guard';
 import { GetUser } from '../auth/decorator/getUser.decorator';
 import { JwtAuthGuard } from '../auth/guard/jwt.guard';
-import {
-  DeleteTreatmentDto,
-  UpdateTreatmentDto,
-} from '../treatment/dto/treatment.dto';
 import { UserMeDto } from '../user/dto/user.dto';
 import {
   CreatePatientWithTreatmentDto,
@@ -40,20 +36,6 @@ export class PatientController {
   @Put('/addPatientTreatment')
   addPatientTreatment(@Body() dto: CreatePatientWithTreatmentDto) {
     return this.patientService.addPatientTreatment(dto);
-  }
-
-  @AnyOfRole(['admin', 'doctor'])
-  @UseGuards(RolesGuard)
-  @Put('/updatePatientTreatment')
-  updatePatientTreatment(@Body() dto: UpdateTreatmentDto) {
-    return this.patientService.updateTreatment(dto);
-  }
-
-  @AnyOfRole(['admin', 'doctor'])
-  @UseGuards(RolesGuard)
-  @Delete('/deletePatientTreatment/:treatmentId')
-  deletePatientTreatment(@Param() dto: DeleteTreatmentDto) {
-    return this.patientService.deleteTreatment(dto);
   }
 
   @AnyOfRole(['admin', 'doctor'])

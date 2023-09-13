@@ -5,16 +5,19 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { formatResponse } from 'src/dtos/pagination/config';
 import { PaginationParamsDto } from 'src/dtos/pagination/pagination.dto';
 import { Patient, PatientDocument } from 'src/schema/patient.schema';
 import { Treatment, TreatmentDocument } from 'src/schema/treatment.schema';
-import { skipPages } from 'src/utils';
+import { calculatePages, skipPages } from 'src/utils';
 import { GetPatientByIdDto } from '../patient/dto/patient.dto';
 import {
   CreateTreatmentDto,
   DeleteTreatmentDto,
+  GetTreatmentQueryDto,
   UpdateTreatmentDto,
 } from './dto/treatment.dto';
+import * as mongoose from 'mongoose';
 
 @Injectable()
 export class TreatmentService {
@@ -88,10 +91,69 @@ export class TreatmentService {
     }
   }
 
+  async getTreatments(
+    filters: GetTreatmentQueryDto,
+    pagination: PaginationParamsDto,
+  ) {
+    try {
+      const treatments = await this.treatmentModel
+        .find({
+          $or: [
+            {
+              name: { $regex: filters?.search ?? '', $options: 'i' },
+            },
+            { description: { $regex: filters?.search ?? '', $options: 'i' } },
+          ],
+        })
+        .sort('-_id')
+        .populate({
+          path: 'doctor',
+          select: '_id firstName lastName',
+        })
+        .skip(skipPages(pagination))
+        .limit(Number(pagination.size))
+        .lean();
+
+      const treatmentPatient = treatments.map(async (t) => {
+        const patient = await this.patientModel
+          .findOne({ treatments: t._id })
+          .select('firstName parentName lastName');
+        return {
+          ...t,
+          patient,
+        };
+      });
+
+      const result = await Promise.all(treatmentPatient);
+
+      const countDocuments = await this.treatmentModel.countDocuments();
+
+      const calculatedPages = calculatePages({
+        page: pagination.page,
+        size: pagination.size,
+        totalPages: countDocuments,
+      });
+
+      return formatResponse(result, calculatedPages);
+    } catch (error) {
+      throw new ForbiddenException(error.message);
+    }
+  }
+
   async deleteTreatment(dto: DeleteTreatmentDto) {
     try {
       await this.treatmentModel.findByIdAndDelete(dto.treatmentId);
-      return dto.treatmentId;
+      const patient = await this.patientModel.findOne({
+        treatments: dto.treatmentId,
+      });
+
+      const filteredPatientIndex = patient.treatments.findIndex(
+        (t) => t._id === new mongoose.Types.ObjectId(dto.treatmentId),
+      );
+      patient.treatments.splice(filteredPatientIndex, 1);
+      await patient.save();
+
+      return { treatmentId: dto.treatmentId };
     } catch (error) {
       throw new ForbiddenException(error.message);
     }
