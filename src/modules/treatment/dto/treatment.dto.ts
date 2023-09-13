@@ -57,3 +57,11 @@ export class DeleteTreatmentDto {
   @IsNotEmpty()
   treatmentId: string;
 }
+
+export class GetTreatmentQueryDto {
+  @ApiProperty({
+    required: false,
+  })
+  @IsOptional()
+  search: string;
+}

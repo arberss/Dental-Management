@@ -10,5 +10,5 @@ export class PaginationParamsDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
-  limit: string;
+  size: string;
 }

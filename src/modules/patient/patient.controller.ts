@@ -12,14 +12,13 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { PaginationParamsDto } from 'src/dtos/pagination/pagination.dto';
 import { AnyOfRole } from 'src/guards/role/role.decorator';
 import { RolesGuard } from 'src/guards/role/role.guard';
+import { GetUser } from '../auth/decorator/getUser.decorator';
 import { JwtAuthGuard } from '../auth/guard/jwt.guard';
-import {
-  DeleteTreatmentDto,
-  UpdateTreatmentDto,
-} from '../treatment/dto/treatment.dto';
+import { UserMeDto } from '../user/dto/user.dto';
 import {
   CreatePatientWithTreatmentDto,
   DeletePatientDto,
+  GetPatientByIdDto,
   GetPatientQueryDto,
   UpdatePatientDto,
 } from './dto/patient.dto';
@@ -41,20 +40,6 @@ export class PatientController {
 
   @AnyOfRole(['admin', 'doctor'])
   @UseGuards(RolesGuard)
-  @Put('/updatePatientTreatment')
-  updatePatientTreatment(@Body() dto: UpdateTreatmentDto) {
-    return this.patientService.updateTreatment(dto);
-  }
-
-  @AnyOfRole(['admin', 'doctor'])
-  @UseGuards(RolesGuard)
-  @Delete('/deletePatientTreatment/:treatmentId')
-  deletePatientTreatment(@Param() dto: DeleteTreatmentDto) {
-    return this.patientService.deleteTreatment(dto);
-  }
-
-  @AnyOfRole(['admin', 'doctor'])
-  @UseGuards(RolesGuard)
   @Delete('/deletePatient/:patientId')
   deletePatient(@Param() dto: DeletePatientDto) {
     return this.patientService.deletePatient(dto);
@@ -71,9 +56,23 @@ export class PatientController {
   @UseGuards(RolesGuard)
   @Get('/patients')
   getPatients(
-    @Query() dto: GetPatientQueryDto,
+    @Query() filters: GetPatientQueryDto,
     @Query() pagination: PaginationParamsDto,
   ) {
-    return this.patientService.getPatients(dto, pagination);
+    return this.patientService.getPatients(filters, pagination);
+  }
+
+  @AnyOfRole(['admin', 'doctor'])
+  @UseGuards(RolesGuard)
+  @Get('/stats')
+  getPatientsStats(@GetUser() user: UserMeDto) {
+    return this.patientService.getPatientsStats(user);
+  }
+
+  @AnyOfRole(['admin', 'doctor'])
+  @UseGuards(RolesGuard)
+  @Get(':patientId')
+  getPatient(@Param() dto: GetPatientByIdDto) {
+    return this.patientService.getPatient(dto.patientId);
   }
 }

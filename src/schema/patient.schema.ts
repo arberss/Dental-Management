@@ -1,7 +1,6 @@
 import * as mongoose from 'mongoose';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
-import * as paginate from 'mongoose-paginate-v2';
 
 export type PatientDocument = HydratedDocument<Patient>;
 
@@ -44,4 +43,3 @@ export class Patient {
 }
 
 export const PatientSchema = SchemaFactory.createForClass(Patient);
-PatientSchema.plugin(paginate);

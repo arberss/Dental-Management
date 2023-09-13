@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { Patient } from 'src/schema/patient.schema';
 
 export interface UserMeDto {
@@ -9,6 +9,7 @@ export interface UserMeDto {
   email: string;
   roles: string[];
   patients: Patient[];
+  createdAt: Date;
 }
 
 export class VerifyUserDto {
@@ -28,4 +29,12 @@ export class DoctorIdDto {
   @IsString()
   @IsNotEmpty()
   doctorId: string;
+}
+
+export class GetDoctorsQueryDto {
+  @ApiProperty({
+    required: false,
+  })
+  @IsOptional()
+  search: string;
 }

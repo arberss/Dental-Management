@@ -1,7 +1,6 @@
 import * as mongoose from 'mongoose';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
-import * as paginate from 'mongoose-paginate-v2';
 
 export type UserDocument = HydratedDocument<User>;
 
@@ -22,12 +21,14 @@ export class User {
   @Prop()
   registerToken: string;
 
+  @Prop({ default: 'pending' })
+  status: string;
+
   @Prop({ default: ['doctor'] })
-  roles: ['doctor'];
+  roles: ['doctor', 'admin'];
 
   @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Patient' }] })
   patients: mongoose.Types.ObjectId[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
-UserSchema.plugin(paginate);
