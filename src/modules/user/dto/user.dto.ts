@@ -36,11 +36,5 @@ export class GetDoctorsQueryDto {
     required: false,
   })
   @IsOptional()
-  firstName: string;
-
-  @ApiProperty({
-    required: false,
-  })
-  @IsOptional()
-  lastName: string;
+  search: string;
 }

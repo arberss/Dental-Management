@@ -21,6 +21,9 @@ export class User {
   @Prop()
   registerToken: string;
 
+  @Prop({ default: 'pending' })
+  status: string;
+
   @Prop({ default: ['doctor'] })
   roles: ['doctor', 'admin'];
 

@@ -10,9 +10,7 @@ export const calculatePages = (pagination: IPaginationProps) => {
   return {
     page: pagination.page,
     size: pagination.size,
-    totalPages: Math.ceil(
-      pagination.totalPages / (Number(pagination.size) ?? 1),
-    ),
+    totalPages: pagination.totalPages,
   };
 };
 

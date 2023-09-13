@@ -16,6 +16,7 @@ import { PaginationParamsDto } from 'src/dtos/pagination/pagination.dto';
 import { DoctorIdDto, GetDoctorsQueryDto } from './dto/user.dto';
 import { calculatePages, skipPages } from 'src/utils';
 import { formatResponse } from 'src/dtos/pagination/config';
+import { Treatment, TreatmentDocument } from 'src/schema/treatment.schema';
 
 @Injectable()
 export class UserService {
@@ -24,7 +25,8 @@ export class UserService {
 
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
-    @InjectModel(User.name)
+    @InjectModel(Treatment.name)
+    private treatmentModel: Model<TreatmentDocument>,
     private jwtService: JwtService,
     private config: ConfigService,
   ) {}
@@ -69,15 +71,36 @@ export class UserService {
     try {
       const doctors = await this.userModel
         .find({
-          firstName: { $regex: filters?.firstName ?? '', $options: 'i' },
-          lastName: { $regex: filters?.lastName ?? '', $options: 'i' },
+          $or: [
+            {
+              firstName: { $regex: filters?.search ?? '', $options: 'i' },
+            },
+            { lastName: { $regex: filters?.search ?? '', $options: 'i' } },
+            { email: { $regex: filters?.search ?? '', $options: 'i' } },
+          ],
           roles: 'doctor',
         })
         .select('-registerToken -password')
         .skip(skipPages(pagination))
-        .limit(Number(pagination.size));
+        .limit(Number(pagination.size))
+        .lean();
 
-      const countDocuments = await this.userModel.countDocuments();
+      const countDocuments = await this.userModel
+        .find({ roles: 'doctor' })
+        .count();
+
+      const doctorsTreatments = doctors.map(async (d) => {
+        const treatments = await this.treatmentModel
+          .find({ doctor: d._id })
+          .count();
+
+        return {
+          ...d,
+          treatments,
+        };
+      });
+
+      const result = await Promise.all(doctorsTreatments);
 
       const calculatedPages = calculatePages({
         page: pagination.page,
@@ -85,7 +108,7 @@ export class UserService {
         totalPages: countDocuments,
       });
 
-      return formatResponse(doctors, calculatedPages);
+      return formatResponse(result, calculatedPages);
     } catch (error) {
       throw new ForbiddenException(error.message);
     }
@@ -138,7 +161,9 @@ export class UserService {
           role: dto.roles[0],
           link: `${this.config.get(
             'FRONT_DOMAIN',
-          )}/verify-registered-user/token?verifyToken=${token.access_token}`,
+          )}/auth/verify-registered-user/token?verifyToken=${
+            token.access_token
+          }`,
         },
       });
 
@@ -149,6 +174,7 @@ export class UserService {
         registerToken: token.access_token,
         roles: dto?.roles ?? ['doctor'],
         patients: [],
+        status: 'pending',
       });
 
       return {
@@ -184,6 +210,7 @@ export class UserService {
       const hashedPassword = await bcrypt.hash(password, 12);
       user.password = hashedPassword;
       user.registerToken = null;
+      user.status = 'verified';
       await user.save();
 
       return {
