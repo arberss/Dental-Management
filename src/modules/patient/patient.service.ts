@@ -14,10 +14,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, PipelineStage, Types } from 'mongoose';
 import { Patient, PatientDocument } from 'src/schema/patient.schema';
 import { TreatmentService } from '../treatment/treatment.service';
-import {
-  DeleteTreatmentDto,
-  UpdateTreatmentDto,
-} from '../treatment/dto/treatment.dto';
+import { DeleteTreatmentDto } from '../treatment/dto/treatment.dto';
 import { Treatment, TreatmentDocument } from 'src/schema/treatment.schema';
 import { PaginationParamsDto } from 'src/dtos/pagination/pagination.dto';
 import { formatResponse } from 'src/dtos/pagination/config';
@@ -71,7 +68,7 @@ export class PatientService {
           patientTreatment = await this.patientModel.findByIdAndUpdate(
             dto._id,
             {
-              $push: {
+              $addToSet: {
                 treatments: treatment._id,
               },
             },
@@ -87,7 +84,7 @@ export class PatientService {
         }
 
         await this.userModel.findByIdAndUpdate(dto.treatment.doctor, {
-          $push: { patients: patientTreatment?._id },
+          $addToSet: { patients: patientTreatment?._id },
         });
         return patientTreatment;
       } else {
