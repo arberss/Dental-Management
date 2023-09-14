@@ -147,10 +147,11 @@ export class TreatmentService {
         treatments: dto.treatmentId,
       });
 
-      const filteredPatientIndex = patient.treatments.findIndex(
-        (t) => t._id === new mongoose.Types.ObjectId(dto.treatmentId),
-      );
-      patient.treatments.splice(filteredPatientIndex, 1);
+      const filteredTreatments = patient.treatments.filter((p) => {
+        return p._id.toString() !== dto.treatmentId;
+      });
+
+      patient.treatments = filteredTreatments;
       await patient.save();
 
       return { treatmentId: dto.treatmentId };
