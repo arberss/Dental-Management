@@ -7,6 +7,7 @@ import { PatientModule } from './modules/patient/patient.module';
 import { TreatmentModule } from './modules/treatment/treatment.module';
 import { MailService } from './modules/mail/mail.service';
 import { MailModule } from './modules/mail/mail.module';
+import { SchedulerModule } from './modules/scheduler/scheduler.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { MailModule } from './modules/mail/mail.module';
     PatientModule,
     TreatmentModule,
     MailModule,
+    SchedulerModule,
   ],
   controllers: [],
   providers: [MailService],
