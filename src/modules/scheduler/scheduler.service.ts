@@ -12,6 +12,7 @@ import {
   UpdateScheduleDto,
 } from './dto/scheduler.dto';
 import * as dayjs from 'dayjs';
+import { UserMeDto } from '../user/dto/user.dto';
 
 @Injectable()
 export class SchedulerService {
@@ -114,10 +115,14 @@ export class SchedulerService {
     }
   }
 
-  async getScheduls() {
+  async getSchedules(user: UserMeDto) {
     try {
+      const isDoctor = user?.roles?.includes('doctor');
+
       const schedules = await this.schedulerModel
-        .find()
+        .find({
+          ...(isDoctor && { doctor: user._id }),
+        })
         .populate({ path: 'doctor', select: 'firstName lastName' });
 
       return schedules;

@@ -38,14 +38,14 @@ export class PatientController {
     return this.patientService.addPatientTreatment(dto);
   }
 
-  @AnyOfRole(['admin', 'doctor'])
+  @AnyOfRole(['admin'])
   @UseGuards(RolesGuard)
   @Delete('/deletePatient/:patientId')
   deletePatient(@Param() dto: DeletePatientDto) {
     return this.patientService.deletePatient(dto);
   }
 
-  @AnyOfRole(['admin', 'doctor'])
+  @AnyOfRole(['admin'])
   @UseGuards(RolesGuard)
   @Put('/updatePatient')
   updatePatient(@Body() dto: UpdatePatientDto) {

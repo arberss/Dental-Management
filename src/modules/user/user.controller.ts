@@ -43,11 +43,22 @@ export class UserController {
     return this.userService.getUsers();
   }
 
-  @AnyOfRole(['admin', 'doctor'])
+  @AnyOfRole(['admin'])
   @UseGuards(RolesGuard)
   @UseGuards(JwtAuthGuard)
   @Get('doctors')
   getDoctors(
+    @Query() filters: GetDoctorsQueryDto,
+    @Query() pagination: PaginationParamsDto,
+  ) {
+    return this.userService.getDoctors(filters, pagination);
+  }
+
+  @AnyOfRole(['admin', 'doctor'])
+  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard)
+  @Get('doctors/dropdown')
+  getDoctorsDropdown(
     @Query() filters: GetDoctorsQueryDto,
     @Query() pagination: PaginationParamsDto,
   ) {
