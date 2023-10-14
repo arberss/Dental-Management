@@ -130,4 +130,34 @@ export class SchedulerService {
       throw new ForbiddenException(error.message);
     }
   }
+
+  async completePastSchedules() {
+    try {
+      const yesterdayDate = dayjs().startOf('day').add(-1, 'day').toDate();
+
+      const schedules = await this.schedulerModel.find({
+        endDate: {
+          $gte: yesterdayDate, // Greater than or equal to yesterday start date
+          $lt: dayjs(yesterdayDate).endOf('day').toDate(), // Less than today
+        },
+        status: ScheduleStatusEnum.active,
+      });
+
+      if (schedules?.length > 0) {
+        const mappedSchedules = schedules.map(async (schedule) => {
+          const foundSchedule = await this.schedulerModel.findById(
+            schedule._id,
+          );
+
+          foundSchedule.status = ScheduleStatusEnum.completed;
+          foundSchedule.save();
+          return foundSchedule;
+        });
+
+        await Promise.all(mappedSchedules);
+      }
+    } catch (error) {
+      throw new ForbiddenException(error.message);
+    }
+  }
 }

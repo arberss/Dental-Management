@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, Put, UseGuards } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AnyOfRole } from 'src/guards/role/role.decorator';
 import { RolesGuard } from 'src/guards/role/role.guard';
@@ -34,5 +35,10 @@ export class SchedulerController {
   @Get('/all')
   getSchedules(@GetUser() user: UserMeDto) {
     return this.schedulerService.getSchedules(user);
+  }
+
+  @Cron('0 5 0 * * *')
+  completePastSchedules() {
+    return this.schedulerService.completePastSchedules();
   }
 }
