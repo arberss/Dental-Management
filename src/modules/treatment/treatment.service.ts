@@ -17,7 +17,6 @@ import {
   GetTreatmentQueryDto,
   UpdateTreatmentDto,
 } from './dto/treatment.dto';
-import * as mongoose from 'mongoose';
 
 @Injectable()
 export class TreatmentService {

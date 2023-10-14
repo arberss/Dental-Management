@@ -31,7 +31,7 @@ export class AuthService {
 
       const isPasswordValid = await bcrypt.compare(dto.password, user.password);
       if (!isPasswordValid) {
-        throw new ForbiddenException('Password is not correct!');
+        throw new ForbiddenException('Email or password is not correct!');
       }
 
       const token = await this.signToken({
