@@ -138,9 +138,11 @@ export class PatientService {
 
       // if patient is deleted, delete all treatments
       if (deletedPatient?._id) {
-        const patientTreatmentsIds = deletedPatient.treatments.map((p) => {
-          return this.treatmentModel.findByIdAndDelete(p._id);
-        });
+        const patientTreatmentsIds = deletedPatient.treatments.map(
+          async (p) => {
+            return await this.treatmentModel.findByIdAndDelete(p._id);
+          },
+        );
         await Promise.all(patientTreatmentsIds);
         const usersWithPatient = await this.userModel.find({
           patients: dto.patientId,
