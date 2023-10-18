@@ -116,7 +116,7 @@ export class TreatmentService {
       const treatmentPatient = treatments.map(async (t) => {
         const patient = await this.patientModel
           .findOne({ treatments: t._id })
-          .select('firstName parentName lastName');
+          .select('firstName parentName lastName address');
         return {
           ...t,
           patient,
