@@ -83,9 +83,6 @@ export class PatientService {
           });
         }
 
-        await this.userModel.findByIdAndUpdate(dto.treatment.doctor, {
-          $addToSet: { patients: patientTreatment?._id },
-        });
         return patientTreatment;
       } else {
         throw new ForbiddenException('Something went wrong');
@@ -144,20 +141,6 @@ export class PatientService {
           },
         );
         await Promise.all(patientTreatmentsIds);
-        const usersWithPatient = await this.userModel.find({
-          patients: dto.patientId,
-        });
-
-        // remove patient id from user patients list
-        const usersWithPatientId = usersWithPatient.map(async (u) => {
-          const user = await this.userModel.findById(u._id);
-          const patientIndex = user.patients.findIndex(
-            (p) => p._id.toString() === dto.patientId,
-          );
-          user.patients.splice(patientIndex, 1);
-          await user.save();
-        });
-        await Promise.all(usersWithPatientId);
 
         return dto.patientId;
       }
