@@ -152,26 +152,44 @@ export class PatientService {
   }
 
   async getPatients(
+    user: UserMeDto,
     filters: GetPatientQueryDto,
     pagination: PaginationParamsDto,
   ) {
+    const isDoctor = user?.roles?.includes('doctor');
+
     try {
       const patients = await this.patientModel
-        .find({
-          $or: [
-            {
-              firstName: { $regex: filters?.search ?? '', $options: 'i' },
+        .aggregate([
+          {
+            $lookup: {
+              from: 'treatments',
+              localField: 'treatments',
+              foreignField: '_id',
+              as: 'treatmentsData',
             },
-            { parentName: { $regex: filters?.search ?? '', $options: 'i' } },
-            { lastName: { $regex: filters?.search ?? '', $options: 'i' } },
-            {
-              contactNumber: {
-                $regex: filters?.search ?? '',
-                $options: 'i',
-              },
+          },
+          {
+            $match: {
+              ...(isDoctor && { 'treatmentsData.doctor': user._id }),
+              $or: [
+                {
+                  firstName: { $regex: filters?.search ?? '', $options: 'i' },
+                },
+                {
+                  parentName: { $regex: filters?.search ?? '', $options: 'i' },
+                },
+                { lastName: { $regex: filters?.search ?? '', $options: 'i' } },
+                {
+                  contactNumber: {
+                    $regex: filters?.search ?? '',
+                    $options: 'i',
+                  },
+                },
+              ],
             },
-          ],
-        })
+          },
+        ])
         .sort('-_id')
         .skip(skipPages(pagination))
         .limit(Number(pagination.size));

@@ -56,10 +56,11 @@ export class PatientController {
   @UseGuards(RolesGuard)
   @Get('/patients')
   getPatients(
+    @GetUser() user: UserMeDto,
     @Query() filters: GetPatientQueryDto,
     @Query() pagination: PaginationParamsDto,
   ) {
-    return this.patientService.getPatients(filters, pagination);
+    return this.patientService.getPatients(user, filters, pagination);
   }
 
   @AnyOfRole(['admin', 'doctor'])

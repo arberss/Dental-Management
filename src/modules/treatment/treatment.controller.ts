@@ -12,8 +12,10 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { PaginationParamsDto } from 'src/dtos/pagination/pagination.dto';
 import { AnyOfRole } from 'src/guards/role/role.decorator';
 import { RolesGuard } from 'src/guards/role/role.guard';
+import { GetUser } from '../auth/decorator/getUser.decorator';
 import { JwtAuthGuard } from '../auth/guard/jwt.guard';
 import { GetPatientByIdDto } from '../patient/dto/patient.dto';
+import { UserMeDto } from '../user/dto/user.dto';
 import {
   DeleteTreatmentDto,
   GetTreatmentQueryDto,
@@ -42,10 +44,11 @@ export class TreatmentController {
   @UseGuards(RolesGuard)
   @Get('/')
   getTreatments(
+    @GetUser() user: UserMeDto,
     @Query() filters: GetTreatmentQueryDto,
     @Query() pagination: PaginationParamsDto,
   ) {
-    return this.treatmentService.getTreatments(filters, pagination);
+    return this.treatmentService.getTreatments(user, filters, pagination);
   }
 
   @AnyOfRole(['admin', 'doctor'])

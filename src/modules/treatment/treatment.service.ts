@@ -11,6 +11,7 @@ import { Patient, PatientDocument } from 'src/schema/patient.schema';
 import { Treatment, TreatmentDocument } from 'src/schema/treatment.schema';
 import { calculatePages, skipPages } from 'src/utils';
 import { GetPatientByIdDto } from '../patient/dto/patient.dto';
+import { UserMeDto } from '../user/dto/user.dto';
 import {
   CreateTreatmentDto,
   DeleteTreatmentDto,
@@ -91,12 +92,16 @@ export class TreatmentService {
   }
 
   async getTreatments(
+    user: UserMeDto,
     filters: GetTreatmentQueryDto,
     pagination: PaginationParamsDto,
   ) {
+    const isDoctor = user?.roles?.includes('doctor');
+
     try {
       const treatments = await this.treatmentModel
         .find({
+          ...(isDoctor && { doctor: user._id }),
           $or: [
             {
               name: { $regex: filters?.search ?? '', $options: 'i' },
@@ -125,7 +130,9 @@ export class TreatmentService {
 
       const result = await Promise.all(treatmentPatient);
 
-      const countDocuments = await this.treatmentModel.countDocuments();
+      const countDocuments = await this.treatmentModel.countDocuments({
+        ...(isDoctor && { doctor: user._id }),
+      });
 
       const calculatedPages = calculatePages({
         page: pagination.page,
