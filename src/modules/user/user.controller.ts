@@ -35,14 +35,6 @@ export class UserController {
     return user;
   }
 
-  @AllRoles(['admin'])
-  @UseGuards(RolesGuard)
-  @UseGuards(JwtAuthGuard)
-  @Get('all')
-  getUsers() {
-    return this.userService.getUsers();
-  }
-
   @AnyOfRole(['admin'])
   @UseGuards(RolesGuard)
   @UseGuards(JwtAuthGuard)

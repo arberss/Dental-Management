@@ -6,6 +6,7 @@ import { UserService } from './user.service';
 import { MailModule } from '../mail/mail.module';
 import { JwtModule } from '@nestjs/jwt';
 import { Treatment, TreatmentSchema } from 'src/schema/treatment.schema';
+import { Patient, PatientSchema } from 'src/schema/patient.schema';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { Treatment, TreatmentSchema } from 'src/schema/treatment.schema';
     MongooseModule.forFeature([
       { name: Treatment.name, schema: TreatmentSchema },
     ]),
+    MongooseModule.forFeature([{ name: Patient.name, schema: PatientSchema }]),
     JwtModule.register({}),
     MailModule,
   ],

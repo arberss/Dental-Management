@@ -17,6 +17,7 @@ import { DoctorIdDto, GetDoctorsQueryDto } from './dto/user.dto';
 import { calculatePages, skipPages } from 'src/utils';
 import { formatResponse } from 'src/dtos/pagination/config';
 import { Treatment, TreatmentDocument } from 'src/schema/treatment.schema';
+import { Patient, PatientDocument } from 'src/schema/patient.schema';
 
 @Injectable()
 export class UserService {
@@ -27,42 +28,11 @@ export class UserService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Treatment.name)
     private treatmentModel: Model<TreatmentDocument>,
+    @InjectModel(Patient.name)
+    private patientModel: Model<PatientDocument>,
     private jwtService: JwtService,
     private config: ConfigService,
   ) {}
-
-  async getUsers() {
-    try {
-      const users = await this.userModel.aggregate([
-        {
-          $lookup: {
-            from: 'patients',
-            localField: 'patients',
-            foreignField: '_id',
-            as: 'patientCount',
-          },
-        },
-        {
-          $project: {
-            _id: 1,
-            username: 1,
-            firstName: 1,
-            lastName: 1,
-            email: 1,
-            patients: { $size: '$patientCount' },
-          },
-        },
-      ]);
-
-      if (!users || users.length < 1) {
-        throw new NotFoundException('Something went wrong!');
-      }
-
-      return users;
-    } catch (error) {
-      throw new ForbiddenException(error.message);
-    }
-  }
 
   async getDoctors(
     filters: GetDoctorsQueryDto,
@@ -90,13 +60,35 @@ export class UserService {
         .count();
 
       const doctorsTreatments = doctors.map(async (d) => {
-        const treatments = await this.treatmentModel
-          .find({ doctor: d._id })
-          .count();
+        const treatments = await this.treatmentModel.find({ doctor: d._id });
+
+        const patientList = [];
+        const countPatients = treatments.map(async (treatment) => {
+          // get patient that includes this id in treatments field
+          const patient = await this.patientModel
+            .findOne({
+              treatments: treatment._id,
+            })
+            .select('_id');
+
+          const isPatientInList = patientList.find(
+            (item) => String(item) === String(patient._id),
+          );
+
+          // if patient is not in list (duplicated) push the id
+          if (!isPatientInList) {
+            patientList.push(String(patient._id));
+          }
+
+          return patient;
+        });
+
+        await Promise.all(countPatients);
 
         return {
           ...d,
-          treatments,
+          treatments: treatments.length,
+          patients: patientList.length,
         };
       });
 
@@ -121,10 +113,7 @@ export class UserService {
           _id: dto.doctorId,
           roles: 'doctor',
         })
-        .select('-password -registerToken')
-        .populate({
-          path: 'patients',
-        });
+        .select('-password -registerToken');
 
       if (!doctor) {
         throw new NotFoundException('There is no doctor with that id');
@@ -141,7 +130,7 @@ export class UserService {
         .findOne({
           email: dto.email,
         })
-        .select('-password -patients');
+        .select('-password');
 
       if (user) {
         throw new NotFoundException('This user exist!');
@@ -173,7 +162,6 @@ export class UserService {
         email: dto.email,
         registerToken: token.access_token,
         roles: dto?.roles ?? ['doctor'],
-        patients: [],
         status: 'pending',
       });
 
