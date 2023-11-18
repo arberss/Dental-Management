@@ -17,6 +17,10 @@ export class Treatment {
 
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User' })
   doctor: mongoose.Types.ObjectId;
+
+  @Prop() createdAt?: Date;
+
+  @Prop() updatedAt?: Date;
 }
 
 export const TreatmentSchema = SchemaFactory.createForClass(Treatment);
