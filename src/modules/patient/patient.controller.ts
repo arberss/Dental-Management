@@ -72,6 +72,13 @@ export class PatientController {
 
   @AnyOfRole(['admin', 'doctor'])
   @UseGuards(RolesGuard)
+  @Get('/allStats')
+  getAllStats(@GetUser() user: UserMeDto) {
+    return this.patientService.getAllStats(user);
+  }
+
+  @AnyOfRole(['admin', 'doctor'])
+  @UseGuards(RolesGuard)
   @Get(':patientId')
   getPatient(@Param() dto: GetPatientByIdDto) {
     return this.patientService.getPatient(dto.patientId);

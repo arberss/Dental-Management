@@ -21,6 +21,7 @@ import { formatResponse } from 'src/dtos/pagination/config';
 import { User, UserDocument } from 'src/schema/user.schema';
 import { calculatePages, skipPages } from 'src/utils';
 import { UserMeDto } from '../user/dto/user.dto';
+import * as dayjs from 'dayjs';
 
 @Injectable()
 export class PatientService {
@@ -266,6 +267,60 @@ export class PatientService {
       return {
         totalPatients,
         totalTodayTreatments,
+      };
+    } catch (error) {
+      throw new ForbiddenException(error.message);
+    }
+  }
+
+  async getAllStats(user: UserMeDto) {
+    const isDoctor = user?.roles?.includes('doctor');
+
+    try {
+      const treatmentList = await this.treatmentModel.find({
+        ...(isDoctor && { doctor: user?._id }),
+      });
+
+      const totalEarning = treatmentList.reduce((acc, val) => {
+        return acc + val?.price;
+      }, 0);
+
+      const currentMonthTreatments = treatmentList.filter((item) => {
+        if (
+          dayjs(item.createdAt) >= dayjs().startOf('month') &&
+          dayjs(item.createdAt) <= dayjs().endOf('month')
+        ) {
+          return item;
+        }
+      });
+
+      const todayTreatmentsEarnings = treatmentList
+        .filter((item) => {
+          if (
+            dayjs(item.createdAt) >= dayjs().startOf('day') &&
+            dayjs(item.createdAt) <= dayjs().endOf('day')
+          ) {
+            return item;
+          }
+        })
+        .reduce((acc, val) => acc + val.price, 0);
+
+      const currentMonthTreatmentsEarnings = currentMonthTreatments.reduce(
+        (acc, val) => {
+          return acc + val?.price;
+        },
+        0,
+      );
+
+      const patientsStats = await this.getPatientsStats(user);
+
+      return {
+        ...patientsStats,
+        earnings: totalEarning,
+        totalTreatments: treatmentList.length,
+        currentMonthTreatments: currentMonthTreatments.length,
+        currentMonthEarnings: currentMonthTreatmentsEarnings,
+        todayTreatmentsEarnings,
       };
     } catch (error) {
       throw new ForbiddenException(error.message);
